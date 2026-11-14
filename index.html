@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vibe · Mission Control</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(255, 255, 255, 0.04);
+    --panel-border: rgba(255, 255, 255, 0.08);
+    --text: #e8ecf4;
+    --text-dim: #8b93a7;
+    --accent: #7c6cff;
+    --accent2: #2fd4c4;
+    --accent3: #ff6b9d;
+    --good: #3ddc84;
+    --warn: #ffb454;
+    --bad: #ff5f7e;
+    --radius: 18px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(124, 108, 255, 0.18), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(47, 212, 196, 0.12), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 32px clamp(16px, 4vw, 48px);
+  }
+  header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 44px; height: 44px; border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: grid; place-items: center;
+    font-size: 22px; font-weight: 800; color: #fff;
+    box-shadow: 0 8px 24px rgba(124, 108, 255, 0.4);
+  }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+  .subtitle { color: var(--text-dim); font-size: 13px; margin-top: 2px; }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--panel); border: 1px solid var(--panel-border);
+    padding: 8px 16px; border-radius: 999px; font-size: 13px; color: var(--text-dim);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 10px var(--good); animation: pulse 2s infinite; }
+  @keyframes pulse { 50% { opacity: 0.4; } }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: var(--radius); padding: 20px;
+    backdrop-filter: blur(12px);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+  }
+  .card:hover { transform: translateY(-3px); border-color: rgba(124, 108, 255, 0.4); }
+  .kpi-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+  .kpi-value { font-size: 32px; font-weight: 700; margin: 8px 0 6px; letter-spacing: -0.02em; }
+  .kpi-trend { font-size: 12px; }
+  .up { color: var(--good); } .down { color: var(--bad); }
+
+  .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 16px; color: var(--text); }
+  .chart-wrap { width: 100%; overflow: hidden; }
+  svg text { font-family: inherit; }
+
+  .bars { display: flex; flex-direction: column; gap: 14px; }
+  .bar-row { display: grid; grid-template-columns: 90px 1fr 40px; align-items: center; gap: 12px; font-size: 13px; }
+  .bar-track { height: 10px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent2)); width: 0; transition: width 1s cubic-bezier(0.22, 1, 0.36, 1); }
+  .bar-val { text-align: right; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--text-dim); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.06em; padding: 10px 12px; border-bottom: 1px solid var(--panel-border); }
+  td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(124, 108, 255, 0.06); }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .badge.run  { background: rgba(61, 220, 132, 0.15); color: var(--good); }
+  .badge.done { background: rgba(124, 108, 255, 0.15); color: #a89fff; }
+  .badge.fail { background: rgba(255, 95, 126, 0.15); color: var(--bad); }
+  .badge.wait { background: rgba(255, 180, 84, 0.15); color: var(--warn); }
+  footer { color: var(--text-dim); font-size: 12px; text-align: center; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo">V</div>
+      <div>
+        <h1>Vibe · Mission Control</h1>
+        <div class="subtitle">Agenten-, Task- und Session-Übersicht</div>
+      </div>
+    </div>
+    <div class="status-pill"><span class="dot"></span> Alle Systeme betriebsbereit</div>
+  </header>
+
+  <section class="kpis">
+    <div class="card">
+      <div class="kpi-label">Aktive Sessions</div>
+      <div class="kpi-value" id="kpi-sessions">–</div>
+      <div class="kpi-trend up">▲ 12 % vs. letzte Woche</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label">Abgeschlossene Tasks</div>
+      <div class="kpi-value" id="kpi-tasks">–</div>
+      <div class="kpi-trend up">▲ 8 % vs. letzte Woche</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label">Ø Antwortzeit</div>
+      <div class="kpi-value" id="kpi-latency">–</div>
+      <div class="kpi-trend down">▼ 0,4 s schneller</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label">Erfolgsquote</div>
+      <div class="kpi-value" id="kpi-success">–</div>
+      <div class="kpi-trend up">▲ 1,2 %punkte</div>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Aktivität – letzte 14 Tage</h2>
+      <div class="chart-wrap" id="line-chart"></div>
+    </div>
+    <div class="card">
+      <h2>Tasks pro Agent</h2>
+      <div class="bars" id="bars"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Letzte Sessions</h2>
+    <table>
+      <thead>
+        <tr><th>Session</th><th>Agent</th><th>Repository</th><th>Dauer</th><th>Tasks</th><th>Status</th></tr>
+      </thead>
+      <tbody id="sessions-body"></tbody>
+    </table>
+  </section>
+
+  <footer>Vibe Mission Control · Demo-Daten · Aktualisiert: <span id="ts"></span></footer>
+
+<script>
+  const sessions = 14, tasks = 238, latency = "2,3 s", success = "96,4 %";
+  document.getElementById("kpi-sessions").textContent = sessions;
+  document.getElementById("kpi-tasks").textContent = tasks;
+  document.getElementById("kpi-latency").textContent = latency;
+  document.getElementById("kpi-success").textContent = success;
+  document.getElementById("ts").textContent = new Date().toLocaleString("de-DE");
+
+  const days = ["Mo","Di","Mi","Do","Fr","Sa","So","Mo","Di","Mi","Do","Fr","Sa","So"];
+  const runData = [12, 18, 15, 22, 19, 8, 5, 14, 20, 24, 21, 26, 10, 6];
+  const taskData = [30, 44, 38, 55, 48, 18, 12, 36, 50, 60, 52, 66, 24, 15];
+
+  (function lineChart() {
+    const w = 720, h = 260, pad = { t: 20, r: 16, b: 28, l: 36 };
+    const max = Math.max(...taskData) * 1.15;
+    const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+    const x = i => pad.l + (iw * i) / (days.length - 1);
+    const y = v => pad.t + ih - (ih * v) / max;
+    const path = d => d.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+    const area = path(runData) + ` L${x(days.length - 1)},${y(0)} L${x(0)},${y(0)} Z`;
+    let grid = "";
+    for (let g = 0; g <= 4; g++) {
+      const gy = pad.t + (ih * g) / 4;
+      grid += `<line x1="${pad.l}" y1="${gy}" x2="${w - pad.r}" y2="${gy}" stroke="rgba(255,255,255,0.06)"/>`
+           + `<text x="${pad.l - 8}" y="${gy + 4}" fill="#8b93a7" font-size="10" text-anchor="end">${Math.round(max - (max * g) / 4)}</text>`;
+    }
+    let labels = days.map((d, i) => i % 2 === 0 ? `<text x="${x(i)}" y="${h - 8}" fill="#8b93a7" font-size="10" text-anchor="middle">${d}</text>` : "").join("");
+    const dots = taskData.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="#7c6cff"><title>${days[i]}: ${v} Tasks</title></circle>`).join("");
+    document.getElementById("line-chart").innerHTML = `
+      <svg viewBox="0 0 ${w} ${h}" width="100%" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#7c6cff" stop-opacity="0.35"/>
+            <stop offset="100%" stop-color="#7c6cff" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        ${grid}${labels}
+        <path d="${area}" fill="url(#fill)"/>
+        <path d="${path(runData)}" fill="none" stroke="#2fd4c4" stroke-width="2" stroke-linejoin="round"/>
+        <path d="${path(taskData)}" fill="none" stroke="#7c6cff" stroke-width="2.5" stroke-linejoin="round"/>
+        ${dots}
+      </svg>`;
+  })();
+
+  const agents = [
+    ["Coder", 96], ["Reviewer", 64], ["Tester", 48], ["DevOps", 20], ["Docs", 10]
+  ];
+  const barsEl = document.getElementById("bars");
+  agents.forEach(([name, val]) => {
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.innerHTML = `<span>${name}</span><div class="bar-track"><div class="bar-fill" data-w="${val / 100}"></div></div><span class="bar-val">${val}</span>`;
+    barsEl.appendChild(row);
+  });
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelectorAll(".bar-fill").forEach(el => el.style.width = el.dataset.w * 100 + "%");
+  }));
+
+  const rows = [
+    ["#4821", "Coder", "acme/api-gateway", "12 min", "8", "run"],
+    ["#4820", "Tester", "acme/web-app", "34 min", "21", "done"],
+    ["#4819", "Reviewer", "acme/api-gateway", "6 min", "3", "done"],
+    ["#4818", "Coder", "acme/billing-svc", "51 min", "17", "fail"],
+    ["#4817", "DevOps", "acme/infra", "18 min", "5", "done"],
+    ["#4816", "Coder", "acme/web-app", "9 min", "6", "wait"]
+  ];
+  const statusMap = { run: ["run", "Läuft"], done: ["done", "Fertig"], fail: ["fail", "Fehler"], wait: ["wait", "Wartet"] };
+  document.getElementById("sessions-body").innerHTML = rows.map(([id, agent, repo, dur, t, st]) => {
+    const [cls, label] = statusMap[st];
+    return `<tr><td><strong>${id}</strong></td><td>${agent}</td><td style="color:var(--text-dim)">${repo}</td><td>${dur}</td><td>${t}</td><td><span class="badge ${cls}">${label}</span></td></tr>`;
+  }).join("");
+</script>
+</body>
+</html>
